@@ -1,0 +1,147 @@
+#include <Arduino.h>
+// Definir los pines de los LEDs
+#define LED1 23
+#define LED2 22
+#define LED3 34
+
+// Pin del ADC para el potenciómetro
+#define POT_PIN 21
+
+// Prototipo de funciones
+void Encender_LED(int led, int tiempo);
+void MostrarMenu();
+void Lectura_ADC();
+void Controlar_LEDs();
+void errorOpcion();
+
+// Configuración inicial
+void setup() {
+  // Configuración de los LEDs como salidas
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  
+  // Inicialización de UART
+  Serial.begin(115200);
+  
+  // Configuración del ADC
+  analogReadResolution(12);  // Resolución de 12 bits
+  analogSetAttenuation(ADC_11db);  // Atenuación para un rango de 0-3.6V
+  
+  // Mostrar el menú inicial
+  MostrarMenu();
+}
+
+// Loop principal
+void loop() {
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim(); // Limpiar espacios y saltos de línea
+    
+    if (input == "1") {
+      Lectura_ADC();  // Llamar a la función de lectura ADC
+    } else if (input == "2") {
+      Controlar_LEDs();  // Llamar a la función para controlar LEDs
+    } else {
+      errorOpcion();  // Manejar opciones inválidas
+    }
+  }
+}
+
+// Función para encender el LED con un tiempo especificado
+void Encender_LED(int led, int tiempo) {
+  int pin;
+  
+  // Seleccionar el pin del LED de acuerdo con el indicador
+  if (led == 1) {
+    pin = LED1;
+  } else if (led == 2) {
+    pin = LED2;
+  } else if (led == 3) {
+    pin = LED3;
+  } else {
+    Serial.println("LED inválido.");
+    return;
+  }
+
+  // Encender el LED
+  digitalWrite(pin, HIGH);
+  Serial.print("Encendiendo LED");
+  Serial.print(led);
+  Serial.print(" por ");
+  Serial.print(tiempo);
+  Serial.println(" ms");
+  
+  // Esperar el tiempo especificado
+  vTaskDelay(tiempo / portTICK_PERIOD_MS);
+  
+  // Apagar el LED
+  digitalWrite(pin, LOW);
+  Serial.print("Apagando LED");
+  Serial.println(led);
+}
+
+// Función para mostrar el menú en la terminal serial
+void MostrarMenu() {
+  Serial.println("Seleccione una opción:");
+  Serial.println("1. Lectura ADC (Potenciómetro)");
+  Serial.println("2. Controlar LEDs");
+}
+
+// Función para realizar la lectura del ADC desde el potenciómetro
+void Lectura_ADC() {
+  int valorADC = analogRead(POT_PIN);  // Leer el valor del ADC desde el potenciómetro
+  float voltaje = (valorADC * 3.6) / 4095.0;  // Convertir el valor del ADC a voltaje (0-3.6V)
+  
+  // Mostrar el voltaje en el formato solicitado
+  Serial.print("Voltaje: ");
+  Serial.print(voltaje, 2);  // Mostrar 2 decimales
+  Serial.println(" V");
+  
+  // Volver a mostrar el menú
+  MostrarMenu();
+}
+
+// Función para controlar los LEDs
+void Controlar_LEDs() {
+  Serial.println("Ingrese el LED a encender y el tiempo en milisegundos (Ej: 1,500):");
+  Serial.println("1. amarillo 2.verde , 3. rojo");
+  while (true) {
+    if (Serial.available() > 0) {
+      String comando = Serial.readStringUntil('\n');
+      comando.trim();
+      
+      // Separar el comando en dos partes (LED y tiempo)
+      int separador = comando.indexOf(',');
+      if (separador == -1) {
+        Serial.println("Comando inválido. Inténtelo de nuevo.");
+        continue;
+      }
+
+      String ledStr = comando.substring(0, separador);
+      String tiempoStr = comando.substring(separador + 1);
+      
+      // Validar los datos ingresados
+      int led = ledStr.toInt();
+      int tiempo = tiempoStr.toInt();
+      
+      if ((led != 1 && led != 2 && led != 3) || tiempo <= 0) {
+        Serial.println("Entrada inválida. Inténtelo de nuevo.");
+        continue;
+      }
+      
+      // Llamar a la función para encender el LED
+      Encender_LED(led, tiempo);
+      
+      // Volver a mostrar el menú
+      MostrarMenu();
+      break;
+    }
+  }
+}
+
+// Función para mostrar error en opción inválida
+void errorOpcion() {
+  Serial.println("Opción inválida. Intente nuevamente.");
+  MostrarMenu();
+}
